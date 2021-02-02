@@ -8,19 +8,23 @@ Created on Sun Jan 31 15:41:52 2021
 import numpy as np
 
 class ConvLayer:
-    def __init__(self, X, W, B , params):
+    def __init__(self, Wshape , params , B = 0.1 , learning_rate = 1e-7):
         
-        self.w = np.ones((7,3,4,4))
-        self.B = B
-        self.params = params 
+        #self.w = np.ones(Wshape) * 1e-3
+        self.w = np.random.randn(Wshape[0],Wshape[1],Wshape[2],Wshape[3])/np.sqrt(Wshape[2]/2)
+        self.b = B
+        self.params = params
+        self.lr = learning_rate
         
-    def conv_forward(self, x , w , B , params):
+    def conv_forward(self, x ):
         # 초기값 설정
+        w=self.w
         N, C, H, W = x.shape
         F, C, FH , FW = w.shape
-        stride = params["stride"]
-        pad = params["pad"]
-        if ( self.W == None):
+        stride = self.params["stride"]
+        pad = self.params["pad"]
+        #if ( self.w == None):
+        #    pass
         outH = (H + 2 * pad - FH) // stride + 1
         outW = (W + 2 * pad - FW) // stride + 1
         
@@ -53,9 +57,10 @@ class ConvLayer:
         out = out.reshape(N, outH, outW , -1 ).transpose(0,3,1,2)
         
         print(out.shape)
+        
         return out
     
- """   
+"""   
     def cov_backward(self, dout):
         
         N, C, H, W = x.shape
@@ -66,14 +71,65 @@ class ConvLayer:
 """    
 class AffineLayer:
     
-    def __init__(self):
-        self.w = np.ones((7,3,4,4))
-    def aff_forward(X,b):
+    def __init__(self , X ):
+        
+        self.x = X.reshape(X.shape[0],-1)
+        #self.w = np.ones((self.x.shape[1],10)) * 1e-3
+        self.w = np.random.randn(self.x.shape[1],10)/np.sqrt(self.x.shape[1]/2)
         
         
-
-def ReLu(X):
+    def aff_forward(self, x, b):
+        print(self.w.shape, x.shape)
+        x = x.reshape((x.shape[0],-1))
+        out = x @ self.w + b
+        return out
     
-    out = X[X<0]
-    cach = X
-    return out, X
+    
+    def aff_backward(self,dW):  
+        W = self.w
+        X = self.x
+        
+        dW = dW @ X
+    
+        tmp = np.zeros((W.shape[1],X.shape[0]))
+        #tmp [y, np.arange(tmp.shape[1])] = 1 
+        
+        dW -= tmp @ X
+        
+        dW /= X.shape[0]
+
+class ReLULayer:
+    
+    def __init__(self):
+        self.X = None
+        
+    def ReLU_forward(self , x ):
+        self.X = x
+        x[x<0] = 0
+        out = x
+        return out
+    
+    def ReLU_backward(self,x):  
+        out = np.array(x)
+        out = out[self.X<0]
+        
+        return out
+
+
+def softmax(x,y):
+    x = np.exp(x - np.max(x , axis=1 ,keepdims = True)) #softmax 내에서 exp 했을때 값의 overflow을 방지
+    #x /= np.sum(x,axis=1 , keepdims = True)             # 결과 값은 동일
+    dW = np.array(x)
+    
+    ans_score = x[np.arange(x.shape[0]),y]
+    
+    loss= np.sum(ans_score) / x.shape[0]
+    loss = np.log(loss)
+    loss *= -1
+    
+    dW[np.arange(x.shape[0]), y] -= 1
+    dW /= x.shape[0]
+
+    
+
+    return loss , dW
