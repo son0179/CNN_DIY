@@ -9,7 +9,6 @@ import numpy as np
 
 class ConvLayer:
     def __init__(self, Wshape , params , B = 0.1 , learning_rate = 1e-7):
-        
         #self.w = np.ones(Wshape) * 1e-3
         self.w = np.random.randn(Wshape[0],Wshape[1],Wshape[2],Wshape[3])/np.sqrt(Wshape[2]/2)
         self.b = B
@@ -19,6 +18,7 @@ class ConvLayer:
     def conv_forward(self, x ):
         # 초기값 설정
         w=self.w
+        self.xshape = x.shape
         N, C, H, W = x.shape
         F, C, FH , FW = w.shape
         stride = self.params["stride"]
@@ -27,7 +27,6 @@ class ConvLayer:
         #    pass
         outH = (H + 2 * pad - FH) // stride + 1
         outW = (W + 2 * pad - FW) // stride + 1
-        
         # 이미지를 행렬 데이터로 변환 im2col
         
         img = np.pad(x, ( (0,0),(0,0) ,(pad,pad),(pad,pad) ) , 'constant'  )
@@ -42,61 +41,89 @@ class ConvLayer:
         col = np.transpose(col ,(0,4,5,1,2,3))
         col = col.reshape(N*outH*outW,-1)
         
-        
-        print(col.shape)
-        
         w = w.reshape((F,-1)).T
-        
-        
-        print(w.shape)
+        self.col_x = col
+        self.col_w = w
         
         out = np.dot( col , w)
         
-        print(out.shape)
-        
         out = out.reshape(N, outH, outW , -1 ).transpose(0,3,1,2)
         
-        print(out.shape)
         
         return out
     
-"""   
-    def cov_backward(self, dout):
+
+    def conv_backward(self, dX ):
         
-        N, C, H, W = x.shape
+        # = self.
+        w = self.w
+        N, C, H, W =self.xshape
         F, C, FH , FW = w.shape
         
-        dout  = dout.transpose(0,2,3,1).reshape(-1,)
+        stride = self.params["stride"]
+        pad = self.params["pad"]
+        F, C, FH , FW = w.shape
+        
+        #ndB = np.sum(dW , axis = (0 , 2 , 3))
+        
+        #ndW = dX.transpose(0, 2, 3, 1).reshape(-1, F)
+        """
+        tmp = self.col_x.T @ dX
+        tmp = tmp.transpose(1,0).reshape(F,C,FH,FW)
+        """
+        print("ttt",dX.shape,self.col_w.shape)
+        dcol = dX @ self.col_w.T
+        #dw = 
+        
+        outH = (H + 2 * pad - FH) // stride + 1
+        outW = (W + 2 * pad - FW) // stride + 1
+        
+        col = dcol.reshape(N, outH, outW, C, FH, FW).transpose(0, 3, 4, 5, 1, 2)
+    
+        img = np.zeros((N, C, H + 2 * pad + stride - 1, W + 2 * pad + stride - 1))
+        for i in range(FH):
+            endi = stride * outH + i
+            for j in range(FW):
+                endj =stride * outW + j
+                img[:, :, i:endi:stride, j:endj:stride] += col[:, :, i, j, :, :]
+        
+        dx = img[:, :, pad:H + pad, pad:W + pad]
+        
+        return dx
 
-"""    
+
 class AffineLayer:
     
     def __init__(self , X ):
-        
+        self.xshape = X.shape
         self.x = X.reshape(X.shape[0],-1)
         #self.w = np.ones((self.x.shape[1],10)) * 1e-3
         self.w = np.random.randn(self.x.shape[1],10)/np.sqrt(self.x.shape[1]/2)
         
         
     def aff_forward(self, x, b):
-        print(self.w.shape, x.shape)
         x = x.reshape((x.shape[0],-1))
         out = x @ self.w + b
         return out
     
     
     def aff_backward(self,dW):  
-        W = self.w
-        X = self.x
+        W = np.array(self.w)
+        X = np.array(self.x)
+        #print("aaaa")
+        #print(dW.shape , W.shape , X.shape)
+        dX = dW @ W.T
         
-        dW = dW @ X
-    
-        tmp = np.zeros((W.shape[1],X.shape[0]))
-        #tmp [y, np.arange(tmp.shape[1])] = 1 
+        #print("plz",dX.shape)
+        dX = dX.reshape(self.xshape)
+        #print("plz",dX.shape)
+        #print(dW.T.shape,np.ones(X.shape[0]).shape)
+        dB = dW.T @ np.ones(X.shape[0])
         
-        dW -= tmp @ X
-        
-        dW /= X.shape[0]
+        dW = X.T @ dW
+        return dX, dW , dB
+
+
 
 class ReLULayer:
     
@@ -111,9 +138,11 @@ class ReLULayer:
     
     def ReLU_backward(self,x):  
         out = np.array(x)
-        out = out[self.X<0]
+        out[self.X<=0] = 0
         
         return out
+
+
 
 
 def softmax(x,y):
