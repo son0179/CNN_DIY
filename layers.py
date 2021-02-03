@@ -59,10 +59,11 @@ class ConvLayer:
         w = self.w
         N, C, H, W =self.xshape
         F, C, FH , FW = w.shape
-        
         stride = self.params["stride"]
         pad = self.params["pad"]
-        F, C, FH , FW = w.shape
+        
+        dX = dX.transpose(0,2,3,1)
+        dX = dX.reshape(-1,F)
         
         #ndB = np.sum(dW , axis = (0 , 2 , 3))
         
@@ -71,7 +72,7 @@ class ConvLayer:
         tmp = self.col_x.T @ dX
         tmp = tmp.transpose(1,0).reshape(F,C,FH,FW)
         """
-        print("ttt",dX.shape,self.col_w.shape)
+        #print("ttt",dX.shape,self.col_w.shape)
         dcol = dX @ self.col_w.T
         #dw = 
         
