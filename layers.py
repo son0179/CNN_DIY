@@ -65,20 +65,14 @@ class ConvLayer:
         dX = dX.transpose(0,2,3,1)
         dX = dX.reshape(-1,F)
         
-        #ndB = np.sum(dW , axis = (0 , 2 , 3))
+        dW = dX.T @ self.col_x
+        dW = dW.reshape(dW.shape[0],C,FH,FW)
         
-        #ndW = dX.transpose(0, 2, 3, 1).reshape(-1, F)
-        """
-        tmp = self.col_x.T @ dX
-        tmp = tmp.transpose(1,0).reshape(F,C,FH,FW)
-        """
-        #print("ttt",dX.shape,self.col_w.shape)
         dcol = dX @ self.col_w.T
-        #dw = 
         
         outH = (H + 2 * pad - FH) // stride + 1
         outW = (W + 2 * pad - FW) // stride + 1
-        
+        # 행렬을 이미지로 변환 col2im
         col = dcol.reshape(N, outH, outW, C, FH, FW).transpose(0, 3, 4, 5, 1, 2)
     
         img = np.zeros((N, C, H + 2 * pad + stride - 1, W + 2 * pad + stride - 1))
@@ -90,39 +84,43 @@ class ConvLayer:
         
         dx = img[:, :, pad:H + pad, pad:W + pad]
         
-        return dx
+        return dx , dW
 
 
 class AffineLayer:
     
-    def __init__(self , X ):
-        self.xshape = X.shape
-        self.x = X.reshape(X.shape[0],-1)
-        #self.w = np.ones((self.x.shape[1],10)) * 1e-3
-        self.w = np.random.randn(self.x.shape[1],10)/np.sqrt(self.x.shape[1]/2)
+    def __init__(self , learning_rate = 1e-7):
+        self.ck = None
+        self.w = None
+        self.lr = learning_rate
         
         
-    def aff_forward(self, x, b):
-        x = x.reshape((x.shape[0],-1))
-        out = x @ self.w + b
+    def aff_forward(self, x):
+        self.xshape = x.shape
+        self.x = x.reshape(x.shape[0],-1)
+        
+        if self.ck == None:
+            #self.w = np.ones((self.x.shape[1],10)) * 1e-3
+            self.w = np.random.randn(self.x.shape[1],10)/np.sqrt(self.x.shape[1]/2)
+            self.ck = 1
+            
+        out = self.x @ self.w #+ b
         return out
     
     
     def aff_backward(self,dW):  
+        
         W = np.array(self.w)
         X = np.array(self.x)
-        #print("aaaa")
-        #print(dW.shape , W.shape , X.shape)
-        dX = dW @ W.T
         
-        #print("plz",dX.shape)
+        
+        dX = dW @ W.T
         dX = dX.reshape(self.xshape)
-        #print("plz",dX.shape)
-        #print(dW.T.shape,np.ones(X.shape[0]).shape)
-        dB = dW.T @ np.ones(X.shape[0])
+        
+        #dB = dW.T @ np.ones(X.shape[0])
         
         dW = X.T @ dW
-        return dX, dW , dB
+        return dX, dW #, dB
 
 
 
