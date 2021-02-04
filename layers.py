@@ -45,7 +45,7 @@ class ConvLayer:
         self.col_x = col
         self.col_w = w
         
-        out = np.dot( col , w)
+        out = col @ w
         
         out = out.reshape(N, outH, outW , -1 ).transpose(0,3,1,2)
         
@@ -66,7 +66,7 @@ class ConvLayer:
         dX = dX.reshape(-1,F)
         
         dW = dX.T @ self.col_x
-        dW = dW.reshape(dW.shape[0],C,FH,FW)
+        dW = dW.reshape(F,C,FH,FW)
         
         dcol = dX @ self.col_w.T
         
@@ -131,8 +131,7 @@ class ReLULayer:
         
     def ReLU_forward(self , x ):
         self.X = x
-        x[x<0] = 0
-        out = x
+        out = np.maximum(0, x)
         return out
     
     def ReLU_backward(self,x):  
@@ -146,12 +145,12 @@ class ReLULayer:
 
 def softmax(x,y):
     x = np.exp(x - np.max(x , axis=1 ,keepdims = True)) #softmax 내에서 exp 했을때 값의 overflow을 방지
-    #x /= np.sum(x,axis=1 , keepdims = True)             # 결과 값은 동일
+    x /= np.sum(x,axis=1 , keepdims = True)             # 결과 값은 동일
     dW = np.array(x)
     
     ans_score = x[np.arange(x.shape[0]),y]
     
-    loss= np.sum(ans_score) / x.shape[0]
+    loss= np.sum(ans_score) / (x.shape[0] )
     loss = np.log(loss)
     loss *= -1
     
